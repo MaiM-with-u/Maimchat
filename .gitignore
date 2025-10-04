@@ -39,6 +39,12 @@ local.properties
 keystore/
 **/keystore/**
 
+# Live2D SDK (download separately)
+app/CubismSdkForJava-*/
+app/libs/Live2DCubismCore*.aar
+app/src/main/assets/**
+!app/src/main/assets/README.md
+
 # Possible signing config/property files
 signing.properties
 keystore.properties
