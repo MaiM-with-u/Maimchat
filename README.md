@@ -148,4 +148,4 @@ androidproj/
 
 ## 📄 许可证
 
-MIT
+本项目采用 [MIT License](./LICENSE) 授权，允许在保留版权声明的前提下自由复制、修改与分发。
