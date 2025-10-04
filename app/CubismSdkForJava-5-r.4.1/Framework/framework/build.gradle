@@ -1,0 +1,38 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace = "com.live2d.sdk.cubism.framework"
+    compileSdk 36
+
+    defaultConfig {
+        minSdkVersion 24
+        targetSdkVersion 36
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+}
+
+dependencies {
+    // 提供两种方式引用 Core AAR，如果一种失败可以尝试另一种
+    compileOnly fileTree(dir: '../../Core/android', include: ['Live2DCubismCore.aar'])
+    // 如果上面的路径无效，尝试使用这个路径
+    compileOnly fileTree(dir: '../../../libs', include: ['Live2DCubismCore.aar'])
+
+    testImplementation 'junit:junit:4.13.2'
+}

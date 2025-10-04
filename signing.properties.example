@@ -1,0 +1,7 @@
+# 复制此文件为 signing.properties 并填写真实值（此示例文件可提交，真实文件不要提交）
+# keystore 相对或绝对路径（例如 keystore/l2dchat-release.jks）
+storeFile=keystore/l2dchat-release.jks
+# 密码示例：请改为你自己的
+storePassword=PLEASE_CHANGE_STORE_PASSWORD
+keyAlias=l2dchat_release
+keyPassword=PLEASE_CHANGE_KEY_PASSWORD
