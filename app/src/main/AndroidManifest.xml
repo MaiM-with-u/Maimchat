@@ -32,6 +32,10 @@
             android:name="com.l2dchat.wallpaper.WidgetInputActivity"
             android:exported="false"
             android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity="com.l2dchat.widget"
+            android:turnScreenOn="true"
+            android:showWhenLocked="true"
             android:theme="@style/Theme.L2DChat.WidgetInputDialog" />
 
         <service

@@ -1,21 +1,25 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ProGuard / R8 rules customised for l2dchat release builds.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# --- Live2D Cubism --------------------------------------------------------
+# The Live2D runtime relies heavily on JNI symbols with fixed class and
+# method names. If these are obfuscated, `System.loadLibrary` succeeds but the
+# subsequent native method lookups crash the app at startup (seen only in the
+# release build with minify enabled). Keep the entire package unobfuscated and
+# preserve native method signatures.
+-keep class com.live2d.sdk.cubism.** { *; }
+-keep class jp.live2d.** { *; }
+-keepclasseswithmembers class * {
+	native <methods>;
+}
+# The framework uses reflection to access optional logging hooks; suppress
+# warnings about missing optional classes shipped in proprietary archives.
+-dontwarn com.live2d.sdk.cubism.**
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# The embedded sample runtime (`com.live2d.demo.full`) stores model directories
+# and other state in fields we access via reflection. Obfuscation would rename
+# those members and break model switching, so keep the package intact.
+-keep class com.live2d.demo.** { *; }
+-keep class com.live2d.demo.full.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# --- General project notes -----------------------------------------------
+# (Add any additional keep/donotwarn rules below as new libraries are linked.)

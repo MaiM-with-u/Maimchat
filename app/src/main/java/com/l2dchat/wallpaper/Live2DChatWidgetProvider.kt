@@ -52,7 +52,12 @@ class Live2DChatWidgetProvider : AppWidgetProvider() {
             ids.forEach { id ->
                 val views = RemoteViews(context.packageName, R.layout.widget_live2d_chat)
                 views.setTextViewText(R.id.widget_hint, last)
-                val intent = Intent(context, WidgetInputActivity::class.java)
+                val intent =
+                        Intent(context, WidgetInputActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
+                            addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                        }
                 Log.d(TAG, "Preparing PendingIntent for widgetId=$id")
                 val pi =
                         PendingIntent.getActivity(
