@@ -120,19 +120,6 @@ androidproj/
 
 1. 若缺少配置，构建脚本会抛出明确的 `GradleException` 提示缺失字段。
 
-## 🌐 WebSocket 配置
-
-- 阅读 [`WEBSOCKET_CONFIG_GUIDE.md`](./WEBSOCKET_CONFIG_GUIDE.md) 了解完整的消息协议、连接参数以及调试技巧。
-- 本地测试可执行：
-
-  ```bash
-  npm install
-  node websocket-test-server.js
-  ```
-
-  默认监听 `ws://localhost:8080/chat`，支持 Platform Header 与 Bearer Token 校验。
-- 应用内的 `ChatServiceClient` 会自动管理绑定、状态流与消息订阅，支持文本、表情、语音段等多种类型。
-
 ## 🖼️ 动态壁纸与桌面小组件
 
 - 参见 [`wallpaper_guide.md`](./wallpaper_guide.md) 了解当前骨架实现、手势交互、消息气泡展示及后续扩展建议。
@@ -152,34 +139,12 @@ androidproj/
 - 将模型文件夹直接置于 `app/src/main/assets/` 下，应用会自动扫描并在 UI 中列出可选模型。
 - 若发布到公开仓库或商用产品，请再次核对是否需要签署 Cubism SDK Release License（年营收 ≥ 1000 万日元的主体必须签署）。
 
-## 🧪 测试
-
-- 单元与仪器化测试入口：
-
-  ```bash
-  ./gradlew testDebug
-  ./gradlew connectedDebugAndroidTest
-  ```
-
-- WebSocket 协议测试可结合 `chat/protocol` 包内的解析逻辑编写更多用例。
-
-## 🛠️ 常见问题
-
-| 问题 | 排查建议 |
-| ---- | -------- |
-| 启动时报缺少 `Live2DCubismCore.aar` | 按“准备 Live2D Cubism SDK”章节将 `Live2DCubismCore.aar` 拷贝至 `app/libs/` 并重新同步。 |
-| Gradle 报告 `:framework` 路径不存在 | 确认已解压 Cubism SDK 并将 `Framework/framework` 放置到 README 指定的路径，或修改 `settings.gradle.kts` 的目录。 |
-| Release 构建报缺少 signing.properties | 参考上节创建文件或在命令行传入 `-Pandroid.injected.signing.store.file=...` 等参数。 |
-| WebSocket 连接失败 | 检查 URL 是否以 `ws://` 或 `wss://` 开头、Platform Header 是否设置、服务器是否运行。 |
-| 模型或壁纸未刷新 | 确认 `ImprovedLive2DRenderer.ensureFrameworkInitialized()` / `safeShutdownFramework()` 调用、或壁纸 Service 生命周期是否正确注册。 |
-
 ## 🤝 贡献指南
 
 1. Fork 项目并切出特性分支。
 2. 保持代码与文档中不包含个人敏感信息（域名、IP、密钥等）。
-3. 提交前请运行基础测试并确保 `./gradlew lint`、`./gradlew testDebug` 通过。
-4. 提交 PR 时描述修改动机、测试结果与兼容性影响。
+3. 提交 PR 时描述修改动机、测试结果与兼容性影响。
 
 ## 📄 许可证
 
-项目未附带最终许可证，请在发布前根据实际需求更新此章节（例如 MIT、Apache-2.0 等）。
+MIT
