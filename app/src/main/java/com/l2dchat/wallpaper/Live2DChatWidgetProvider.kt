@@ -6,13 +6,20 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import android.widget.RemoteViews
 import com.l2dchat.R
+import com.l2dchat.logging.L2DLogger
+import com.l2dchat.logging.LogModule
 
 class Live2DChatWidgetProvider : AppWidgetProvider() {
+    private val logger = L2DLogger.module(LogModule.WIDGET)
+
     override fun onReceive(context: Context, intent: Intent) {
-        Log.d(TAG, "onReceive action=${intent.action}")
+    logger.debug(
+        "onReceive action=${intent.action}",
+        throttleMs = 1_000L,
+        throttleKey = "widget_receive"
+    )
         super.onReceive(context, intent)
     }
 
@@ -22,20 +29,27 @@ class Live2DChatWidgetProvider : AppWidgetProvider() {
             appWidgetIds: IntArray
     ) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
-        Log.d(TAG, "onUpdate ids=${appWidgetIds.joinToString()}")
+    logger.debug("onUpdate ids=${appWidgetIds.joinToString()}")
         updateAllWidgets(context)
     }
 
     companion object {
-        private const val TAG = "Live2DWidget"
-
+        private val logger = L2DLogger.module(LogModule.WIDGET)
         fun updateAllWidgets(context: Context) {
-            Log.d(TAG, "updateAllWidgets invoked")
+        logger.debug(
+            "updateAllWidgets invoked",
+            throttleMs = 1_000L,
+            throttleKey = "widget_update_all"
+        )
             val manager = AppWidgetManager.getInstance(context)
             val component = ComponentName(context, Live2DChatWidgetProvider::class.java)
             val ids = manager.getAppWidgetIds(component)
             if (ids.isEmpty()) {
-                Log.d(TAG, "No widget ids registered")
+        logger.debug(
+            "No widget ids registered",
+            throttleMs = 2_000L,
+            throttleKey = "widget_no_ids"
+        )
                 return
             }
             val sp =
@@ -48,7 +62,7 @@ class Live2DChatWidgetProvider : AppWidgetProvider() {
                         it.isNotBlank()
                     }
                             ?: "点击输入并发送"
-            Log.d(TAG, "Last preview text='$last', widgetCount=${ids.size}")
+            logger.info("Last preview text='$last', widgetCount=${ids.size}")
             ids.forEach { id ->
                 val views = RemoteViews(context.packageName, R.layout.widget_live2d_chat)
                 views.setTextViewText(R.id.widget_hint, last)
@@ -58,7 +72,11 @@ class Live2DChatWidgetProvider : AppWidgetProvider() {
                             addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
                             addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
                         }
-                Log.d(TAG, "Preparing PendingIntent for widgetId=$id")
+        logger.debug(
+            "Preparing PendingIntent for widgetId=$id",
+            throttleMs = 1_000L,
+            throttleKey = "widget_pending_intent"
+        )
                 val pi =
                         PendingIntent.getActivity(
                                 context,

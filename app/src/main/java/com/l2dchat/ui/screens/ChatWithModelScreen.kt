@@ -9,7 +9,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,8 +18,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
@@ -48,6 +49,9 @@ import com.l2dchat.chat.service.ChatServiceClient
 import com.l2dchat.live2d.ImprovedLive2DRenderer
 import com.l2dchat.live2d.Live2DModelLifecycleManager
 import com.l2dchat.live2d.Live2DModelManager
+import com.l2dchat.logging.L2DLogger
+import com.l2dchat.logging.LogModule
+import com.l2dchat.ui.components.LogViewerDialog
 import com.l2dchat.wallpaper.Live2DWallpaperService
 import com.l2dchat.wallpaper.WallpaperComm
 import com.yalantis.ucrop.UCrop
@@ -67,6 +71,10 @@ import kotlinx.coroutines.withContext
 private val ReservedBottomHeight = 84.dp
 // 顶部 AppBar 高度（防止模型头部被遮或越界），Material3 默认 56.dp
 private val TopBarHeight = 56.dp
+
+private data class ConnectionErrorBanner(val id: Long, val message: String)
+
+private val uiLogger = L2DLogger.module(LogModule.MAIN_VIEW)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,12 +116,14 @@ fun ChatWithModelScreen(
     var wallpaperBgPath by rememberSaveable { mutableStateOf(persistedWallpaperPath.orEmpty()) }
     var wallpaperTempPath by rememberSaveable { mutableStateOf(persistedWallpaperPath.orEmpty()) }
     var showWallpaperDialog by remember { mutableStateOf(false) }
+    var showLogViewer by remember { mutableStateOf(false) }
     var backgroundBitmap by remember { mutableStateOf<Bitmap?>(null) }
     // 可选平台字段（不填写则使用默认）
     var platform by remember { mutableStateOf(chatManager.getPlatform().orEmpty()) }
     // 连接确认弹窗
     var showConnectConfirm by remember { mutableStateOf(false) }
     var chatInputHeightPx by remember { mutableStateOf(0) }
+    val connectionErrorBanners = remember { mutableStateListOf<ConnectionErrorBanner>() }
 
     var isLoadingDefaultModel by remember { mutableStateOf(selectedModel == null) }
     var currentModel by remember(modelKey) { mutableStateOf(selectedModel) }
@@ -132,7 +142,7 @@ fun ChatWithModelScreen(
                             if (copied != null) {
                                 wallpaperTempPath = copied
                             } else {
-                                Log.e("ChatWithModel", "裁剪后的壁纸复制失败")
+                                uiLogger.error("裁剪后的壁纸复制失败")
                                 wallpaperTempPath = ""
                             }
                             deleteTempUri(context, output)
@@ -140,7 +150,7 @@ fun ChatWithModelScreen(
                     }
                 } else if (result.resultCode == UCrop.RESULT_ERROR) {
                     val error = result.data?.let { UCrop.getError(it) }
-                    Log.e("ChatWithModel", "裁剪失败", error)
+                    uiLogger.error("裁剪失败", error)
                 }
             }
 
@@ -176,11 +186,22 @@ fun ChatWithModelScreen(
                         grantUriToCropApp(context, destUri)
                         cropLauncher.launch(intent)
                     } catch (e: Exception) {
-                        Log.e("ChatWithModel", "启动裁剪失败", e)
+                        uiLogger.error("启动裁剪失败", e)
                         context.deleteTempCacheFile(destFile)
                     }
                 }
             }
+
+    LaunchedEffect(chatManager) {
+        chatManager.errors.collect { raw ->
+            val message = raw.trim().ifEmpty { "连接出现未知错误" }
+            val entry = ConnectionErrorBanner(System.nanoTime(), message)
+            connectionErrorBanners.add(entry)
+            if (connectionErrorBanners.size > 5) {
+                connectionErrorBanners.removeAt(0)
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         prefs.getString("last_url", null)?.let { serverUrl = it }
@@ -393,8 +414,7 @@ fun ChatWithModelScreen(
                                 IconButton(
                                         onClick = {
                                             val errors = validateConfig(serverUrl, nickname)
-                                            Log.d(
-                                                    "ChatWithModel",
+                                            uiLogger.debug(
                                                     "Connect action tapped state=${connectionState.name} url=$serverUrl nickname=$nickname errors=${errors.joinToString()}"
                                             )
                                             if (errors.isEmpty()) {
@@ -425,6 +445,16 @@ fun ChatWithModelScreen(
                                         onDismissRequest = { overflowExpanded = false }
                                 ) {
                                     DropdownMenuItem(
+                                            text = { Text("查看日志") },
+                                            onClick = {
+                                                overflowExpanded = false
+                                                showLogViewer = true
+                                                uiLogger.info(
+                                                        "Log viewer opened from overflow menu"
+                                                )
+                                            }
+                                    )
+                                    DropdownMenuItem(
                                             text = { Text("更换模型") },
                                             onClick = {
                                                 overflowExpanded = false
@@ -443,6 +473,33 @@ fun ChatWithModelScreen(
                         },
                         modifier = Modifier.align(Alignment.TopCenter)
                 )
+
+                if (connectionErrorBanners.isNotEmpty()) {
+                    Column(
+                            modifier =
+                                    Modifier.align(Alignment.TopStart)
+                                            .padding(
+                                                    start = 12.dp,
+                                                    top = TopBarHeight + 12.dp,
+                                                    end = 12.dp
+                                            )
+                                            .widthIn(max = 360.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        connectionErrorBanners.forEach { banner ->
+                            key(banner.id) {
+                                LaunchedEffect(banner.id) {
+                                    delay(6_000)
+                                    connectionErrorBanners.remove(banner)
+                                }
+                                ConnectionErrorToast(
+                                        message = banner.message,
+                                        onDismiss = { connectionErrorBanners.remove(banner) }
+                                )
+                            }
+                        }
+                    }
+                }
 
                 FloatingMessagesOverlay(
                         recentMessages = messages,
@@ -533,6 +590,9 @@ fun ChatWithModelScreen(
                     onDismiss = { showConnectionDialog = false }
             )
         }
+        if (showLogViewer) {
+            LogViewerDialog(onDismiss = { showLogViewer = false })
+        }
         if (showConnectConfirm) {
             AlertDialog(
                     onDismissRequest = { showConnectConfirm = false },
@@ -572,8 +632,7 @@ fun ChatWithModelScreen(
                                             receiverUserNickname.ifBlank { null }
                                     )
                                     chatManager.updatePlatformPreference(sanitizedPlatform)
-                                    Log.i(
-                                            "ChatWithModel",
+                                    uiLogger.info(
                                             "Confirm connect triggered url=$serverUrl platform=$sanitizedPlatform nickname=$nickname receiverId=${receiverUserId.ifBlank { "(null)" }}"
                                     )
                                     chatManager.connect(serverUrl, sanitizedPlatform)
@@ -609,8 +668,7 @@ fun ChatWithModelScreen(
                                             }
                                         }
                                         .commit()
-                        Log.d(
-                                "ChatWithModel",
+                        uiLogger.debug(
                                 "保存壁纸路径${if (saveSucceeded) "成功" else "失败"}: ${finalPath ?: "(清除)"}"
                         )
                         lifecycleManager?.updateBackgroundTexture(finalPath)
@@ -736,6 +794,37 @@ fun Live2DModelViewer(
 }
 
 @Composable
+private fun ConnectionErrorToast(message: String, onDismiss: () -> Unit) {
+    Surface(
+            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.96f),
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+            tonalElevation = 6.dp,
+            shadowElevation = 8.dp,
+            shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+            )
+            Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f, fill = false)
+            )
+            IconButton(onClick = onDismiss) {
+                Icon(Icons.Default.Close, contentDescription = "关闭错误提示")
+            }
+        }
+    }
+}
+
+@Composable
 private fun FloatingMessagesOverlay(
         recentMessages: List<ChatServiceClient.ChatMessageSnapshot>,
         standardMessages: List<MessageBase>,
@@ -822,7 +911,7 @@ private fun applyLiveWallpaper(context: Context) {
             }
             true
         } catch (t: Throwable) {
-            Log.w("ChatWithModel", "启动壁纸意图失败: ${intent.action}", t)
+            uiLogger.warn("启动壁纸意图失败: ${intent.action}", t)
             false
         }
     }
@@ -1019,7 +1108,7 @@ private suspend fun loadBackgroundBitmap(path: String): Bitmap? =
                         }
                 BitmapFactory.decodeFile(path, decodeOptions)
             } catch (e: Exception) {
-                Log.e("ChatWithModel", "加载背景位图失败", e)
+                uiLogger.error("加载背景位图失败", e)
                 null
             }
         }
@@ -1087,7 +1176,7 @@ private suspend fun copyImageToInternal(context: Context, uri: Uri): String? =
 
                 targetFile.absolutePath
             } catch (e: Exception) {
-                Log.e("ChatWithModel", "复制壁纸图片失败", e)
+                uiLogger.error("复制壁纸图片失败", e)
                 null
             }
         }
@@ -1121,7 +1210,7 @@ private fun openInputStream(context: Context, uri: Uri): InputStream? {
             else -> context.contentResolver.openInputStream(uri)
         }
     } catch (e: Exception) {
-        Log.e("ChatWithModel", "打开图片流失败", e)
+        uiLogger.error("打开图片流失败", e)
         null
     }
 }
@@ -1138,7 +1227,7 @@ private fun grantUriToCropApp(context: Context, uri: Uri) {
         context.grantUriPermission(context.packageName, uri, flags)
         context.grantUriPermission("com.yalantis.ucrop", uri, flags)
     } catch (e: Exception) {
-        Log.w("ChatWithModel", "授权裁剪应用访问 URI 失败", e)
+        uiLogger.warn("授权裁剪应用访问 URI 失败", e)
     }
 }
 

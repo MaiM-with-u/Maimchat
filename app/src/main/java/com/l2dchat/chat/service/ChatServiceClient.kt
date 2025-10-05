@@ -11,8 +11,9 @@ import android.os.Looper
 import android.os.Message
 import android.os.Messenger
 import android.os.RemoteException
-import android.util.Log
 import com.l2dchat.chat.MessageBase
+import com.l2dchat.logging.L2DLogger
+import com.l2dchat.logging.LogModule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,6 +29,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class ChatServiceClient(context: Context) : ServiceConnection {
+
+    private val logger = L2DLogger.module(LogModule.CHAT)
 
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -119,7 +122,7 @@ class ChatServiceClient(context: Context) : ServiceConnection {
         val intent = Intent(appContext, ChatConnectionService::class.java)
         isBound = appContext.bindService(intent, this, Context.BIND_AUTO_CREATE)
         if (!isBound) {
-            Log.e(TAG, "bindService failed")
+            logger.error("bindService failed")
         }
     }
 
@@ -136,7 +139,7 @@ class ChatServiceClient(context: Context) : ServiceConnection {
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
         serviceMessenger = Messenger(service)
         isBound = true
-        Log.i(TAG, "Service connected component=$name pending=${pendingCommands.size}")
+        logger.info("Service connected component=$name pending=${pendingCommands.size}")
         flushPendingCommands()
         sendCommand(ChatServiceProtocol.MSG_REGISTER_CLIENT)
         requestSnapshot()
@@ -145,13 +148,17 @@ class ChatServiceClient(context: Context) : ServiceConnection {
     override fun onServiceDisconnected(name: ComponentName?) {
         isBound = false
         serviceMessenger = null
-        Log.w(TAG, "Service disconnected component=$name")
+        logger.warn("Service disconnected component=$name")
         _connectionState.value = ChatConnectionState.DISCONNECTED
     }
 
     fun ensureBound() {
         if (!isBound) {
-            Log.d(TAG, "ensureBound() -> binding to ChatConnectionService")
+            logger.debug(
+                    "ensureBound() -> binding to ChatConnectionService",
+                    throttleMs = 2_000L,
+                    throttleKey = "ensure_bound"
+            )
             bindService()
         }
     }
@@ -163,9 +170,9 @@ class ChatServiceClient(context: Context) : ServiceConnection {
             scope.launch { _errors.emit("未设置服务器地址") }
             return
         }
-        Log.d(
-                TAG,
-                "connect() called resolvedUrl=$resolvedUrl platform=${platform ?: _platform.value} bound=$isBound messengerReady=${serviceMessenger != null}"
+        logger.debug(
+                "connect() called resolvedUrl=$resolvedUrl platform=${platform ?: _platform.value} " +
+                        "bound=$isBound messengerReady=${serviceMessenger != null}"
         )
         _lastUrl.value = resolvedUrl
         platform?.takeIf { it.isNotBlank() }?.let { _platform.value = it }
@@ -340,7 +347,11 @@ class ChatServiceClient(context: Context) : ServiceConnection {
     private fun flushPendingCommands() {
         if (pendingCommands.isEmpty()) return
         val target = serviceMessenger ?: return
-        Log.d(TAG, "Flushing ${pendingCommands.size} pending commands")
+    logger.debug(
+        "Flushing ${pendingCommands.size} pending commands",
+        throttleMs = 1_000L,
+        throttleKey = "flush_pending"
+    )
         val snapshot = ArrayList(pendingCommands)
         pendingCommands.clear()
         snapshot.forEach { (pendingWhat, pendingData) ->
@@ -351,23 +362,28 @@ class ChatServiceClient(context: Context) : ServiceConnection {
     private fun queueCommand(what: Int, data: Bundle?) {
         val copy = data?.let { Bundle(it) }
         pendingCommands.add(what to copy)
-        Log.d(
-                TAG,
-                "queueCommand ${commandName(what)} pending=${pendingCommands.size} bound=$isBound messengerReady=${serviceMessenger != null}"
-        )
+    logger.debug(
+        "queueCommand ${commandName(what)} pending=${pendingCommands.size} bound=$isBound messengerReady=${serviceMessenger != null}",
+        throttleMs = 500L,
+        throttleKey = "queue_${commandName(what)}"
+    )
     }
 
     private fun dispatchCommand(target: Messenger, what: Int, data: Bundle?) {
-        try {
-            val msg =
-                    Message.obtain(null, what).apply {
-                        replyTo = messenger
-                        data?.let { this.data = it }
-                    }
-            Log.d(TAG, "dispatchCommand ${commandName(what)} -> binder=$target")
+    try {
+        val msg =
+            Message.obtain(null, what).apply {
+            replyTo = messenger
+            data?.let { this.data = it }
+            }
+        logger.debug(
+            "dispatchCommand ${commandName(what)} -> binder=$target",
+            throttleMs = 500L,
+            throttleKey = "dispatch_${commandName(what)}"
+        )
             target.send(msg)
         } catch (e: RemoteException) {
-            Log.e(TAG, "sendMessage failed", e)
+            logger.error("sendMessage failed", e)
         }
     }
 
@@ -411,7 +427,6 @@ class ChatServiceClient(context: Context) : ServiceConnection {
     }
 
     companion object {
-        private const val TAG = "ChatServiceClient"
         private const val CHAT_PREFS = "chat_prefs"
         private const val KEY_LAST_URL = "last_url"
         private const val KEY_PLATFORM = "platform"

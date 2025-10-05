@@ -3,7 +3,6 @@ package com.l2dchat.wallpaper
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -26,16 +25,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.l2dchat.ui.theme.L2DChatTheme
+import com.l2dchat.logging.L2DLogger
+import com.l2dchat.logging.LogModule
 
 class WidgetInputActivity : ComponentActivity() {
-    companion object {
-        private const val TAG = "WidgetInput"
-    }
+    private val logger = L2DLogger.module(LogModule.WIDGET)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         applyNoTransition(isEntering = true)
-        Log.d(TAG, "onCreate intent=$intent")
+    logger.debug("onCreate intent=$intent")
         setContent {
             L2DChatTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
@@ -71,7 +70,11 @@ class WidgetInputActivity : ComponentActivity() {
                         ) {
                             TextButton(
                                     onClick = {
-                                        Log.d(TAG, "Cancel tapped, closing")
+                    logger.debug(
+                        "Cancel tapped, closing",
+                        throttleMs = 1_000L,
+                        throttleKey = "widget_cancel"
+                    )
                                         finish()
                                     }
                             ) { Text("取消") }
@@ -80,11 +83,15 @@ class WidgetInputActivity : ComponentActivity() {
                                     onClick = {
                                         val trimmed = text.trim()
                                         if (trimmed.isBlank()) {
-                                            Log.d(TAG, "Send tapped with blank content")
+                        logger.debug(
+                            "Send tapped with blank content",
+                            throttleMs = 1_000L,
+                            throttleKey = "widget_blank"
+                        )
                                             error = true
                                             return@Button
                                         }
-                                        Log.d(TAG, "Send tapped with message='${'$'}trimmed'")
+                                        logger.info("Send tapped with message='$trimmed'")
                                         WallpaperChatCoordinator.updateWidgetPreview(
                                                 context,
                                                 trimmed,
@@ -96,7 +103,11 @@ class WidgetInputActivity : ComponentActivity() {
                                                 trimmed
                                         )
                                         context.sendBroadcast(broadcast)
-                                        Log.d(TAG, "Broadcast sent and activity finishing")
+                    logger.debug(
+                        "Broadcast sent and activity finishing",
+                        throttleMs = 1_000L,
+                        throttleKey = "widget_finish"
+                    )
                                         finish()
                                     }
                             ) { Text("发送") }
@@ -109,12 +120,20 @@ class WidgetInputActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        Log.d(TAG, "onResume")
+    logger.debug(
+        "onResume",
+        throttleMs = 2_000L,
+        throttleKey = "widget_resume"
+    )
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.d(TAG, "onDestroy")
+    logger.debug(
+        "onDestroy",
+        throttleMs = 2_000L,
+        throttleKey = "widget_destroy"
+    )
     }
 
     override fun finish() {

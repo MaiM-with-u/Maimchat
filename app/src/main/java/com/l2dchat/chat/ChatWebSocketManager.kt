@@ -1,16 +1,21 @@
 package com.l2dchat.chat
 
 import android.content.Context
-import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import com.l2dchat.logging.L2DLogger
+import com.l2dchat.logging.LogModule
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -23,7 +28,7 @@ class ChatWebSocketManager {
     companion object {
         private const val DEFAULT_PLATFORM = "live2d_chat"
     }
-    private val TAG = "ChatWebSocketManager"
+    private val logger = L2DLogger.module(LogModule.CHAT)
     private val gson = Gson()
     private var webSocket: WebSocket? = null
     private val client =
@@ -39,6 +44,12 @@ class ChatWebSocketManager {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
+    private val _errors =
+            MutableSharedFlow<String>(
+                    extraBufferCapacity = 8,
+                    onBufferOverflow = BufferOverflow.DROP_OLDEST
+            )
+    val errors: SharedFlow<String> = _errors.asSharedFlow()
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
     private val _standardMessages = MutableStateFlow<List<MessageBase>>(emptyList())
@@ -51,7 +62,6 @@ class ChatWebSocketManager {
     private var receiverModelName: String? = null
     private var activeModelKey: String? = null
     private var appContext: Context? = null
-    // 可选：覆盖 receiver_info 中的 user_id / user_nickname
     private var receiverUserIdOverride: String? = null
     private var receiverUserNicknameOverride: String? = null
     // === Auto Reconnect Support ===
@@ -69,6 +79,7 @@ class ChatWebSocketManager {
         CONNECTED,
         ERROR
     }
+
     data class ChatMessage(
             val id: String,
             val content: String,
@@ -76,6 +87,7 @@ class ChatWebSocketManager {
             val timestamp: Long = System.currentTimeMillis(),
             val motionData: MotionData? = null
     )
+
     data class MotionData(val group: String, val index: Int, val loop: Boolean = false)
 
     fun setConnectionConfig(platform: String, authToken: String? = null) {
@@ -102,9 +114,9 @@ class ChatWebSocketManager {
     fun connect(url: String, platform: String? = null, authToken: String? = null) {
         if (_connectionState.value == ConnectionState.CONNECTED ||
                         _connectionState.value == ConnectionState.CONNECTING
-        )
-                return
-        // 记录连接参数, 供自动重连使用
+        ) {
+            return
+        }
         lastConnectUrl = url
         if (platform != null) updatePlatformPreference(platform)
         if (authToken != null) this.authToken = authToken.takeIf { it.isNotBlank() }
@@ -112,77 +124,142 @@ class ChatWebSocketManager {
         lastConnectAuth = this.authToken
         userInitiatedDisconnect = false
         _connectionState.value = ConnectionState.CONNECTING
+
         val activePlatform = this.platform
-        val reqBuilder =
+        val requestBuilder =
                 Request.Builder()
                         .url(url)
                         .addHeader("platform", activePlatform)
                         .addHeader("Sec-WebSocket-Protocol", "chat")
-        this.authToken?.let { reqBuilder.addHeader("Authorization", "Bearer $it") }
-        val request = reqBuilder.build()
-        Log.i(TAG, "开始连接: url=$url retryCount=$retryCount")
-        webSocket =
-                client.newWebSocket(
-                        request,
-                        object : WebSocketListener() {
-                            override fun onOpen(webSocket: WebSocket, response: Response) {
-                                Log.i(TAG, "连接成功")
-                                retryCount = 0
-                                reconnectJobActive = false
-                                _connectionState.value = ConnectionState.CONNECTED
-                            }
-                            override fun onMessage(webSocket: WebSocket, text: String) {
-                                scope.launch { handleIncomingMessage(text) }
-                            }
-                            override fun onClosing(
-                                    webSocket: WebSocket,
-                                    code: Int,
-                                    reason: String
-                            ) {
-                                try {
-                                    webSocket.close(1000, null)
-                                } catch (_: Exception) {}
-                                _connectionState.value = ConnectionState.DISCONNECTED
-                                Log.w(
-                                        TAG,
-                                        "连接关闭(code=$code reason=$reason) userInitiated=$userInitiatedDisconnect"
-                                )
-                                attemptScheduleReconnect()
-                            }
-                            override fun onFailure(
-                                    webSocket: WebSocket,
-                                    t: Throwable,
-                                    response: Response?
-                            ) {
-                                Log.e(TAG, "连接失败: ${t.message}", t)
-                                _connectionState.value = ConnectionState.DISCONNECTED
-                                attemptScheduleReconnect()
-                            }
+        this.authToken?.let { requestBuilder.addHeader("Authorization", "Bearer $it") }
+        val request = requestBuilder.build()
+
+        val authStatus =
+                if (this.authToken.isNullOrBlank()) "未提供鉴权信息"
+                else "已附带 Bearer Token（长度=${this.authToken!!.length}）"
+        val headerPreview =
+                request.headers.names().sorted().joinToString(separator = "; ") { name ->
+                    val value =
+                            if (name.equals("Authorization", ignoreCase = true)) "******"
+                            else request.header(name).orEmpty()
+                    "$name=$value"
+                }
+        logger.info("准备建立 WebSocket 连接：目标地址=$url，当前重试序号=$retryCount，平台=$activePlatform，$authStatus")
+        if (headerPreview.isNotBlank()) {
+            logger.debug(
+                    "连接请求头：$headerPreview",
+                    throttleMs = 2_000L,
+                    throttleKey = "ws_request_headers"
+            )
+        }
+
+        val listener =
+                object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response) {
+                        logger.info("服务器握手成功：${summarizeResponse(response)}")
+                        retryCount = 0
+                        reconnectJobActive = false
+                        _connectionState.value = ConnectionState.CONNECTED
+                    }
+
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        scope.launch { handleIncomingMessage(text) }
+                    }
+
+                    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                        try {
+                            webSocket.close(1000, null)
+                        } catch (_: Exception) {}
+                        _connectionState.value = ConnectionState.DISCONNECTED
+                        val readableReason = if (reason.isBlank()) "无" else reason
+                        logger.warn(
+                                "服务器请求关闭连接：状态码=$code，原因=$readableReason，" +
+                                        "是否用户主动断开=$userInitiatedDisconnect"
+                        )
+                        if (!userInitiatedDisconnect && code !in setOf(1000, 1001)) {
+                            reportConnectionError("服务器异常断开：状态码=$code，原因=$readableReason")
                         }
-                )
+                        attemptScheduleReconnect()
+                    }
+
+                    override fun onFailure(
+                            webSocket: WebSocket,
+                            t: Throwable,
+                            response: Response?
+                    ) {
+                        val baseMsg = t.message ?: "未知错误"
+                        val summary = summarizeResponse(response)
+                        reportConnectionError("建立连接失败：$baseMsg；服务器响应概览：$summary", t)
+                        attemptScheduleReconnect()
+                    }
+                }
+
+        try {
+            webSocket = client.newWebSocket(request, listener)
+        } catch (e: Exception) {
+            reportConnectionError("创建 WebSocket 失败：${e.message ?: "未知错误"}", e)
+        }
+    }
+
+    private fun reportConnectionError(message: String, throwable: Throwable? = null) {
+        logger.error(message, throwable)
+        if (_connectionState.value != ConnectionState.CONNECTED) {
+            _connectionState.value = ConnectionState.ERROR
+        }
+        scope.launch { _errors.emit(message) }
+    }
+
+    private fun summarizeResponse(response: Response?, previewLimit: Long = 512L): String {
+        if (response == null) return "无可用响应（response=null）"
+        val statusLine = "HTTP ${response.code} ${response.message.ifBlank { "(无状态描述)" }}"
+        val protocol = response.header("Sec-WebSocket-Protocol")?.let { "，协商协议=$it" } ?: ""
+        val server = response.header("Server")?.let { "，Server=$it" } ?: ""
+        val errorCode = response.header("X-Error-Code")?.let { "，服务器错误码=$it" } ?: ""
+        val headersPreview =
+                response.headers
+                        .names()
+                        .filterNot { it.equals("Set-Cookie", true) }
+                        .sorted()
+                        .take(5)
+                        .joinToString(separator = "; ") { name ->
+                            val value = response.header(name).orEmpty()
+                            "$name=$value"
+                        }
+        val headerText = if (headersPreview.isBlank()) "" else "，首部信息={$headersPreview}"
+        val bodyPreview =
+                runCatching { response.peekBody(previewLimit).string().trim() }
+                        .getOrNull()
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.let { "，响应体预览=${sanitizeForLog(it)}" }
+                        ?: ""
+        return statusLine + protocol + server + errorCode + headerText + bodyPreview
+    }
+
+    private fun sanitizeForLog(raw: String): String {
+        return raw.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\\n")
     }
 
     private fun attemptScheduleReconnect() {
         if (userInitiatedDisconnect) {
-            Log.i(TAG, "用户主动断开，不自动重连")
+            logger.info("用户主动断开，不自动重连")
             return
         }
         if (lastConnectUrl.isNullOrBlank()) {
-            Log.w(TAG, "无上次连接URL，跳过自动重连")
+            reportConnectionError("无法自动重连：缺少上次连接的服务器地址，请重新配置连接信息")
             return
         }
         if (retryCount >= maxRetries) {
-            Log.e(TAG, "达到最大重试次数($maxRetries)，停止重连")
+            reportConnectionError("达到最大重试次数($maxRetries)，已停止自动重连，请检查服务器状态或网络")
             return
         }
         if (reconnectJobActive) {
-            Log.d(TAG, "已有重连任务，跳过重复调度")
+            logger.debug("已有重连任务，跳过重复调度", throttleMs = 2_000L, throttleKey = "reconnect_skip")
             return
         }
         val delayMs = 1500L * (retryCount + 1)
         reconnectJobActive = true
         retryCount += 1
-        Log.i(TAG, "计划 ${delayMs}ms 后进行第 $retryCount 次重连 ...")
+        logger.info("计划 ${delayMs}ms 后进行第 $retryCount 次重连 ...")
         scope.launch {
             try {
                 kotlinx.coroutines.delay(delayMs)
@@ -194,7 +271,7 @@ class ChatWebSocketManager {
                 }
             } catch (e: Exception) {
                 reconnectJobActive = false
-                Log.e(TAG, "重连调度失败: ${e.message}")
+                reportConnectionError("重连调度失败：${e.message ?: "未知错误"}", e)
             }
         }
     }
@@ -305,10 +382,10 @@ class ChatWebSocketManager {
                 is Live2DChatMessageHandler.ChatMessageResult.VoiceProcessed -> {}
                 is Live2DChatMessageHandler.ChatMessageResult.EmojiProcessed -> {}
                 is Live2DChatMessageHandler.ChatMessageResult.Error ->
-                        Log.e(TAG, "消息处理错误: ${result.message}")
+                        logger.error("消息处理错误: ${result.message}")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "处理消息失败", e)
+            logger.error("处理消息失败", e)
         }
     }
 
@@ -329,8 +406,14 @@ class ChatWebSocketManager {
     private fun sendRawMessage(text: String) {
         if (_connectionState.value == ConnectionState.CONNECTED) {
             webSocket?.send(text)
-            Log.d(TAG, "发送: $text")
-        } else Log.w(TAG, "未连接, 发送失败")
+            logger.debug(
+                    "发送: ${sanitizeForLog(text)}",
+                    throttleMs = 200L,
+                    throttleKey = "send_preview"
+            )
+        } else {
+            logger.warn("未连接, 发送失败", throttleMs = 1_000L, throttleKey = "send_without_connection")
+        }
     }
     fun sendMotionMessage(group: String, index: Int, loop: Boolean = false) {
         val m =
@@ -486,7 +569,7 @@ class ChatWebSocketManager {
             val lastTs = loadedStd.maxOfOrNull { (((it.messageInfo.time) ?: 0.0) * 1000).toLong() }
             if (lastTs != null && lastTs > 0) lastServerMessageTime = lastTs
         } catch (e: Exception) {
-            Log.e(TAG, "加载历史失败", e)
+            logger.error("加载历史失败", e)
         }
     }
     fun saveHistory(context: Context, modelKey: String) {
@@ -510,7 +593,7 @@ class ChatWebSocketManager {
             editor.putString("standard_" + modelKey, gson.toJson(arrStd))
             editor.apply()
         } catch (e: Exception) {
-            Log.e(TAG, "保存历史失败", e)
+            logger.error("保存历史失败", e)
         }
     }
     private fun generateMessageId(): String =

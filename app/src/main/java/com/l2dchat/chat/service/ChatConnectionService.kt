@@ -10,11 +10,12 @@ import android.os.Message
 import android.os.Messenger
 import android.os.Process
 import android.os.RemoteException
-import android.util.Log
 import com.l2dchat.chat.ChatWebSocketManager
 import com.l2dchat.chat.ChatWebSocketManager.ChatMessage
 import com.l2dchat.chat.ChatWebSocketManager.ConnectionState
 import com.l2dchat.chat.MessageBase
+import com.l2dchat.logging.L2DLogger
+import com.l2dchat.logging.LogModule
 import com.l2dchat.wallpaper.WallpaperComm
 import java.lang.ref.WeakReference
 import java.util.concurrent.CopyOnWriteArraySet
@@ -26,6 +27,8 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class ChatConnectionService : Service() {
+
+    private val logger = L2DLogger.module(LogModule.CHAT)
 
     private val clients = CopyOnWriteArraySet<Messenger>()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -47,7 +50,7 @@ class ChatConnectionService : Service() {
         manager.setActiveModel(applicationContext, restoreModelName())
         applyStoredConfiguration()
         startObservers()
-        Log.i(TAG, "Chat connection service created (pid=${Process.myPid()})")
+        logger.info("ChatConnectionService created (pid=${Process.myPid()})")
     }
 
     override fun onBind(intent: Intent?): IBinder = messenger.binder
@@ -59,7 +62,7 @@ class ChatConnectionService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.i(TAG, "Chat connection service destroyed")
+        logger.info("ChatConnectionService destroyed")
         serviceScope.cancel()
         clients.clear()
         manager.disconnect()
@@ -112,6 +115,7 @@ class ChatConnectionService : Service() {
                 broadcastStandardMessage(last)
             }
         }
+        serviceScope.launch { manager.errors.collect { message -> notifyError(message) } }
     }
 
     private fun broadcastConnectionState(state: ConnectionState) {
@@ -206,7 +210,7 @@ class ChatConnectionService : Service() {
                 client.send(msg)
                 true
             } catch (e: RemoteException) {
-                Log.w(TAG, "Client callback failed, removing target", e)
+                logger.warn("Client callback failed, removing target", e)
                 false
             }
 
@@ -219,7 +223,11 @@ class ChatConnectionService : Service() {
             notifyError("未设置服务器地址，无法连接")
             return
         }
-        Log.d(TAG, "ensureConnected() with state=$state trigger=$triggerReconnect url=$url")
+        logger.debug(
+                "ensureConnected() with state=$state trigger=$triggerReconnect url=$url",
+                throttleMs = 1_000L,
+                throttleKey = "ensure_connected"
+        )
         manager.connect(url, lastKnownPlatform, lastKnownAuth)
     }
 
@@ -248,10 +256,9 @@ class ChatConnectionService : Service() {
                 data.getString(ChatServiceProtocol.EXTRA_AUTH_TOKEN)?.takeUnless { it.isBlank() }
                         ?: lastKnownAuth
 
-        Log.i(
-                TAG,
-                "handleConnectRequest url=$url platform=$platform authPresent=${auth != null} " +
-                        "caller=${data.keySet()}"
+        logger.info(
+                "handleConnectRequest url=$url platform=$platform " +
+                        "authPresent=${auth != null} caller=${data.keySet()}"
         )
 
         lastKnownUrl = url
@@ -262,7 +269,7 @@ class ChatConnectionService : Service() {
         if (!platform.isNullOrBlank() || auth != null) {
             manager.setConnectionConfig(platform ?: manager.getPlatform(), auth)
         }
-        Log.i(TAG, "Invoking ChatWebSocketManager.connect url=$url platform=$platform")
+        logger.info("Invoking ChatWebSocketManager.connect url=$url platform=$platform")
         manager.connect(url, platform, auth)
     }
 
@@ -374,8 +381,6 @@ class ChatConnectionService : Service() {
     }
 
     companion object {
-        private const val TAG = "ChatConnectionService"
-
         private const val CHAT_PREFS = "chat_prefs"
         private const val KEY_LAST_URL = "last_url"
         private const val KEY_PLATFORM = "platform"

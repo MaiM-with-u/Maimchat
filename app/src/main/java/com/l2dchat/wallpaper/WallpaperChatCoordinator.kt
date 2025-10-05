@@ -1,9 +1,10 @@
 package com.l2dchat.wallpaper
 
 import android.content.Context
-import android.util.Log
 import com.l2dchat.chat.service.ChatServiceClient
 import com.l2dchat.chat.service.ChatServiceClient.ChatMessageSnapshot
+import com.l2dchat.logging.L2DLogger
+import com.l2dchat.logging.LogModule
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.min
@@ -20,7 +21,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /** 管理桌面小部件与壁纸后台的聊天调度，复用独立进程的聊天服务以共享 WebSocket 连接，并将最新对话同步到小部件。 */
 object WallpaperChatCoordinator {
-    private const val TAG = "WallpaperChatCoord"
+    private val logger = L2DLogger.module(LogModule.WALLPAPER)
     private const val CHAT_PREFS = "chat_prefs"
     private const val KEY_LAST_URL = "last_url"
     private const val KEY_NICKNAME = "nickname"
@@ -36,22 +37,30 @@ object WallpaperChatCoordinator {
     private val listeners = CopyOnWriteArraySet<Listener>()
 
     interface Listener {
-    fun onMessageAppended(message: ChatMessageSnapshot)
+        fun onMessageAppended(message: ChatMessageSnapshot)
     }
 
     suspend fun sendMessage(context: Context, message: String): Boolean {
         val trimmed = message.trim()
-        if (trimmed.isEmpty()) {
-            Log.w(TAG, "忽略空白消息")
+    if (trimmed.isEmpty()) {
+        logger.warn(
+            "忽略空白消息",
+            throttleMs = 1_000L,
+            throttleKey = "empty_message"
+        )
             return false
         }
         val appContext = context.applicationContext
-    val client = ensureClient(appContext)
-    client.ensureBound()
+        val client = ensureClient(appContext)
+        client.ensureBound()
         updateWidgetPreview(appContext, trimmed, fromUser = true)
         val connected = ensureConnection(appContext, client)
-        if (!connected) {
-            Log.w(TAG, "无法在超时时间内连接到服务器，发送失败")
+    if (!connected) {
+        logger.warn(
+            "无法在超时时间内连接到服务器，发送失败",
+            throttleMs = 2_000L,
+            throttleKey = "send_timeout"
+        )
             return false
         }
         client.sendUserMessage(trimmed)
@@ -78,9 +87,7 @@ object WallpaperChatCoordinator {
         val existing = clientRef.get()
         if (existing != null) return existing
         return initMutex.withLock {
-            clientRef.get() ?: createClient(context.applicationContext).also {
-                clientRef.set(it)
-            }
+            clientRef.get() ?: createClient(context.applicationContext).also { clientRef.set(it) }
         }
     }
 
@@ -150,7 +157,9 @@ object WallpaperChatCoordinator {
                 lastNotifiedId = last.id
                 notifyListeners(last)
                 if (!last.isFromUser) {
-                    Log.d(TAG, "收到回复 -> ${last.content}")
+                    logger.info(
+                            "收到回复 -> ${last.content.take(120)}${if (last.content.length > 120) "…" else ""}"
+                    )
                 }
             }
         }
@@ -161,7 +170,7 @@ object WallpaperChatCoordinator {
             try {
                 listener.onMessageAppended(message)
             } catch (t: Throwable) {
-                Log.w(TAG, "Listener dispatch failed", t)
+                logger.warn("Listener dispatch failed", t)
             }
         }
     }
@@ -177,7 +186,11 @@ object WallpaperChatCoordinator {
         val url = prefs.getString(KEY_LAST_URL, null)?.takeUnless { it.isBlank() }
         val platform = prefs.getString(KEY_PLATFORM, null)?.takeUnless { it.isBlank() }
         if (url.isNullOrEmpty()) {
-            Log.w(TAG, "尚未配置 WebSocket URL，无法建立连接")
+        logger.warn(
+            "尚未配置 WebSocket URL，无法建立连接",
+            throttleMs = 3_000L,
+            throttleKey = "missing_url"
+        )
             return false
         }
         client.connect(url, platform)

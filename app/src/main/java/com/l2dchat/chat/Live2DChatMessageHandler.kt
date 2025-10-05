@@ -1,12 +1,14 @@
 package com.l2dchat.chat
 
-import android.util.Log
+import com.l2dchat.logging.L2DLogger
+import com.l2dchat.logging.LogModule
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
+private val chatLogger = L2DLogger.module(LogModule.CHAT)
+
 class Live2DChatMessageHandler {
-    private val TAG: String = "Live2DChatMessageHandler"
     private val _messageEvents: MutableSharedFlow<MessageEvent> = MutableSharedFlow()
     val messageEvents: SharedFlow<MessageEvent> = _messageEvents.asSharedFlow()
 
@@ -19,7 +21,7 @@ class Live2DChatMessageHandler {
                 else -> handleTextMessage(message, parsed)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "处理消息失败", e)
+            chatLogger.error("处理消息失败", e)
             ChatMessageResult.Error("消息处理失败: ${e.message}")
         }
     }
@@ -44,7 +46,11 @@ class Live2DChatMessageHandler {
                 }
             }
             else -> {
-                Log.w(TAG, "未知段类型: ${segment.type}")
+                chatLogger.warn(
+                        message = "未知段类型: ${segment.type}",
+                        throttleMs = 5_000L,
+                        throttleKey = "unknown_segment_${segment.type}"
+                )
                 content.addUnknown(segment.type, segment.data.toString())
             }
         }
@@ -136,7 +142,11 @@ class ParsedMessageContent {
     fun addEmoji(e: String): Unit { emojiData.add(e) }
     fun addVoice(v: String): Unit { voiceData.add(v) }
     fun addUnknown(type: String, data: String): Unit {
-        Log.w("ParsedMessageContent", "未知类型当作文本: $type $data")
+        chatLogger.warn(
+                message = "未知类型当作文本: $type $data",
+                throttleMs = 5_000L,
+                throttleKey = "parsed_unknown_$type"
+        )
         addText("[$type]$data")
     }
     fun getText(): String = textData.joinToString(" ")
