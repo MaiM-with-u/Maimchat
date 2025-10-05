@@ -51,6 +51,7 @@ import com.l2dchat.live2d.Live2DModelLifecycleManager
 import com.l2dchat.live2d.Live2DModelManager
 import com.l2dchat.logging.L2DLogger
 import com.l2dchat.logging.LogModule
+import com.l2dchat.preferences.ChatPreferenceKeys
 import com.l2dchat.ui.components.LogViewerDialog
 import com.l2dchat.wallpaper.Live2DWallpaperService
 import com.l2dchat.wallpaper.WallpaperComm
@@ -94,7 +95,10 @@ fun ChatWithModelScreen(
     val currentUserNickname by chatManager.userNickname.collectAsState()
     val prefs =
             remember(context) {
-                context.getSharedPreferences("chat_prefs", android.content.Context.MODE_PRIVATE)
+                context.getSharedPreferences(
+                        ChatPreferenceKeys.PREFS_NAME,
+                        android.content.Context.MODE_PRIVATE
+                )
             }
     val wallpaperPrefs =
             remember(context) {
@@ -257,18 +261,26 @@ fun ChatWithModelScreen(
 
     LaunchedEffect(modelKey) {
         if (selectedModel == null) {
+            isLoadingDefaultModel = true
+            val storedFolder =
+                    prefs.getString(ChatPreferenceKeys.SELECTED_MODEL_FOLDER, null)
             scope.launch {
                 try {
                     val models = Live2DModelManager.scanModels(context)
-                    val hiyoriModel =
+                    val preferred =
+                            storedFolder?.let { folder ->
+                                models.firstOrNull { it.folderPath == folder }
+                            }
+                    val fallback =
                             models.find {
                                 it.folderPath.contains("hiyori", true) ||
                                         it.name.contains("hiyori", true)
                             }
                                     ?: models.firstOrNull()
-                    if (hiyoriModel != null) {
-                        currentModel = hiyoriModel
-                        onModelChanged(hiyoriModel)
+                    val resolved = preferred ?: fallback
+                    if (resolved != null) {
+                        currentModel = resolved
+                        onModelChanged(resolved)
                     }
                 } catch (_: Exception) {} finally {
                     isLoadingDefaultModel = false
