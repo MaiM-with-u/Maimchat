@@ -100,3 +100,30 @@ dependencies {
     implementation(files("libs/Live2DCubismCore.aar"))
     implementation(project(":framework"))
 }
+
+// --- APK 发布任务 ---
+val publishedApkDir = rootProject.layout.buildDirectory.dir("published-apks")
+
+tasks.register<Copy>("publishDebugApk") {
+    group = "distribution"
+    description = "Assemble the debug build and copy the APK to build/published-apks/debug"
+    dependsOn("assembleDebug")
+    from(layout.buildDirectory.dir("outputs/apk/debug"))
+    include("*.apk")
+    into(publishedApkDir.map { it.dir("debug") })
+}
+
+tasks.register<Copy>("publishReleaseApk") {
+    group = "distribution"
+    description = "Assemble the release build and copy the APK to build/published-apks/release"
+    dependsOn("assembleRelease")
+    from(layout.buildDirectory.dir("outputs/apk/release"))
+    include("*.apk")
+    into(publishedApkDir.map { it.dir("release") })
+}
+
+tasks.register("publishAllApks") {
+    group = "distribution"
+    description = "Build and copy both debug and release APKs into build/published-apks"
+    dependsOn("publishDebugApk", "publishReleaseApk")
+}
