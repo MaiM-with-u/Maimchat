@@ -2,7 +2,11 @@
 
 基于 Live2D Cubism SDK 与 Jetpack Compose 打造的移动端实时聊天示例。
 应用将聊天服务返回的数据与 2D 模型驱动进行耦合，提供模型选取、消息对话、多媒体段处理、动态壁纸、小组件转发等完整体验骨架，便于二次开发成个人助手或虚拟主播客户端。
+
 tcmofashi: 本项目纯纯的vibe coding，还请见谅
+
+
+# **apk在build/published-apks中，debug经过较多测试，release理论上没问题**
 
 ## ✨ 主要特性
 
