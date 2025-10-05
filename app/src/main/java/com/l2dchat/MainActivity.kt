@@ -81,8 +81,7 @@ fun Live2DChatApp() {
             chatManager.connect(lastUrl)
         }
         if (selectedModel == null) {
-            val savedModelFolder =
-                    prefs.getString(ChatPreferenceKeys.SELECTED_MODEL_FOLDER, null)
+            val savedModelFolder = prefs.getString(ChatPreferenceKeys.SELECTED_MODEL_FOLDER, null)
             if (!savedModelFolder.isNullOrBlank()) {
                 val models = Live2DModelManager.scanModels(context)
                 val matched = models.firstOrNull { it.folderPath == savedModelFolder }

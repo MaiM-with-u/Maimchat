@@ -27,7 +27,7 @@ npm install ws
 node websocket-test-server.js
 ```
 
-服务器将在 `ws://localhost:8080/chat` 启动
+服务器将在 `ws://localhost:8080/ws` 启动
 
 ### 2. 在应用中配置连接
 
@@ -47,13 +47,13 @@ fun MyScreen() {
 val chatManager = ChatWebSocketManager()
 
 // 基本连接（无认证）
-val config = WebSocketConfig.default("ws://localhost:8080/chat")
+val config = WebSocketConfig.default("ws://localhost:8080/ws")
 chatManager.setConnectionConfig(config.platform, config.authToken)
 chatManager.connect(config.url)
 
 // 带认证的连接
 val configWithAuth = WebSocketConfig.withAuth(
-    url = "wss://your-server.com/chat",
+  url = "wss://your-server.com/ws",
     platform = "live2d_android", 
     authToken = "your_bearer_token"
 )
@@ -79,17 +79,17 @@ chatManager.connect(configWithAuth.url, configWithAuth.platform, configWithAuth.
 
 ```kotlin
 // 1. 默认配置
-val config1 = WebSocketConfig.default("ws://localhost:8080/chat")
+val config1 = WebSocketConfig.default("ws://localhost:8080/ws")
 
 // 2. 自定义平台
-val config2 = WebSocketConfig.withPlatform("ws://localhost:8080/chat", "my_platform")
+val config2 = WebSocketConfig.withPlatform("ws://localhost:8080/ws", "my_platform")
 
 // 3. 带认证
-val config3 = WebSocketConfig.withAuth("wss://api.example.com/chat", "live2d_android", "token123")
+val config3 = WebSocketConfig.withAuth("wss://api.example.com/ws", "live2d_android", "token123")
 
 // 4. 完全自定义
 val config4 = WebSocketConfig(
-    url = "ws://localhost:8080/chat",
+  url = "ws://localhost:8080/ws",
     platform = "live2d_android",
     authToken = "my_token",
     enableAuth = true,
@@ -338,7 +338,7 @@ Log.d("WebSocket", "标准消息数量: ${standardMessages.size}")
 ```kotlin
 // 生产环境配置
 val productionConfig = WebSocketConfig(
-    url = "wss://api.yourdomain.com/live2d/chat",
+  url = "wss://api.yourdomain.com/live2d/ws",
     platform = "live2d_android",
     authToken = getAuthTokenFromSecureStorage(),
     enableAuth = true,
@@ -375,7 +375,7 @@ val productionConfig = WebSocketConfig(
 ### 本地测试
 
 1. 启动测试服务器：`node websocket-test-server.js`
-2. 在应用中配置：`ws://localhost:8080/chat`
+2. 在应用中配置：`ws://localhost:8080/ws`
 3. 发送包含"你好"、"动作"、"表情"、"语音"的消息测试不同功能
 
 ### 集成测试
@@ -384,7 +384,7 @@ val productionConfig = WebSocketConfig(
 class WebSocketTest {
     @Test
     fun testConnection() {
-        val config = WebSocketConfig.default("ws://localhost:8080/chat")
+  val config = WebSocketConfig.default("ws://localhost:8080/ws")
         val validation = config.validate()
         assertTrue(validation.isSuccess)
     }

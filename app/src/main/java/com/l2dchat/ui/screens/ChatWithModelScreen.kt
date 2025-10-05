@@ -113,7 +113,7 @@ fun ChatWithModelScreen(
             }
     var inputText by remember { mutableStateOf("") }
     var showConnectionDialog by remember { mutableStateOf(false) }
-    var serverUrl by remember { mutableStateOf("ws://localhost:8080/chat") }
+    var serverUrl by remember { mutableStateOf("ws://localhost:8080/ws") }
     var nickname by remember { mutableStateOf(chatManager.getUserNickname() ?: "") }
     var receiverUserId by remember { mutableStateOf("") }
     var receiverUserNickname by remember { mutableStateOf("") }
@@ -262,8 +262,7 @@ fun ChatWithModelScreen(
     LaunchedEffect(modelKey) {
         if (selectedModel == null) {
             isLoadingDefaultModel = true
-            val storedFolder =
-                    prefs.getString(ChatPreferenceKeys.SELECTED_MODEL_FOLDER, null)
+            val storedFolder = prefs.getString(ChatPreferenceKeys.SELECTED_MODEL_FOLDER, null)
             scope.launch {
                 try {
                     val models = Live2DModelManager.scanModels(context)
