@@ -24,9 +24,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.l2dchat.ui.theme.L2DChatTheme
 import com.l2dchat.logging.L2DLogger
 import com.l2dchat.logging.LogModule
+import com.l2dchat.ui.theme.L2DChatTheme
 
 class WidgetInputActivity : ComponentActivity() {
     private val logger = L2DLogger.module(LogModule.WIDGET)
@@ -34,7 +34,7 @@ class WidgetInputActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         applyNoTransition(isEntering = true)
-    logger.debug("onCreate intent=$intent")
+        logger.debug("onCreate intent=$intent")
         setContent {
             L2DChatTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
@@ -70,11 +70,11 @@ class WidgetInputActivity : ComponentActivity() {
                         ) {
                             TextButton(
                                     onClick = {
-                    logger.debug(
-                        "Cancel tapped, closing",
-                        throttleMs = 1_000L,
-                        throttleKey = "widget_cancel"
-                    )
+                                        logger.debug(
+                                                "Cancel tapped, closing",
+                                                throttleMs = 1_000L,
+                                                throttleKey = "widget_cancel"
+                                        )
                                         finish()
                                     }
                             ) { Text("取消") }
@@ -83,11 +83,11 @@ class WidgetInputActivity : ComponentActivity() {
                                     onClick = {
                                         val trimmed = text.trim()
                                         if (trimmed.isBlank()) {
-                        logger.debug(
-                            "Send tapped with blank content",
-                            throttleMs = 1_000L,
-                            throttleKey = "widget_blank"
-                        )
+                                            logger.debug(
+                                                    "Send tapped with blank content",
+                                                    throttleMs = 1_000L,
+                                                    throttleKey = "widget_blank"
+                                            )
                                             error = true
                                             return@Button
                                         }
@@ -103,11 +103,11 @@ class WidgetInputActivity : ComponentActivity() {
                                                 trimmed
                                         )
                                         context.sendBroadcast(broadcast)
-                    logger.debug(
-                        "Broadcast sent and activity finishing",
-                        throttleMs = 1_000L,
-                        throttleKey = "widget_finish"
-                    )
+                                        logger.debug(
+                                                "Broadcast sent and activity finishing",
+                                                throttleMs = 1_000L,
+                                                throttleKey = "widget_finish"
+                                        )
                                         finish()
                                     }
                             ) { Text("发送") }
@@ -120,20 +120,12 @@ class WidgetInputActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-    logger.debug(
-        "onResume",
-        throttleMs = 2_000L,
-        throttleKey = "widget_resume"
-    )
+        logger.debug("onResume", throttleMs = 2_000L, throttleKey = "widget_resume")
     }
 
     override fun onDestroy() {
         super.onDestroy()
-    logger.debug(
-        "onDestroy",
-        throttleMs = 2_000L,
-        throttleKey = "widget_destroy"
-    )
+        logger.debug("onDestroy", throttleMs = 2_000L, throttleKey = "widget_destroy")
     }
 
     override fun finish() {

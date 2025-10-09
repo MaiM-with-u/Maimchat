@@ -18,9 +18,9 @@ import android.view.MotionEvent
 import android.view.SurfaceHolder
 import com.l2dchat.chat.service.ChatServiceClient.ChatMessageSnapshot
 import com.l2dchat.live2d.Live2DGestureDispatcher
-import com.live2d.demo.full.LAppDelegate
 import com.l2dchat.logging.L2DLogger
 import com.l2dchat.logging.LogModule
+import com.live2d.demo.full.LAppDelegate
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -155,12 +155,12 @@ class Live2DWallpaperService : WallpaperService() {
             }
             lastFailureAt = now
             consecutiveFailures += 1
-        logger.error(
-            "Renderer error stage=${stage.name} attempt=$consecutiveFailures",
-            throwable = throwable,
-            throttleMs = 1_000L,
-            throttleKey = "render_error_${stage.name}"
-        )
+            logger.error(
+                    "Renderer error stage=${stage.name} attempt=$consecutiveFailures",
+                    throwable = throwable,
+                    throttleMs = 1_000L,
+                    throttleKey = "render_error_${stage.name}"
+            )
             if (consecutiveFailures < failuresBeforeThreadRestart) {
                 return
             }
@@ -184,9 +184,7 @@ class Live2DWallpaperService : WallpaperService() {
         }
 
         private suspend fun performGlThreadRestart(stage: WallpaperGLThread.RenderStage) {
-            logger.warn(
-                    "Restarting GL thread due to persistent errors (stage=${stage.name})"
-            )
+            logger.warn("Restarting GL thread due to persistent errors (stage=${stage.name})")
             val currentThread = synchronized(glThreadGuard) { glThread }
             currentThread?.shutdown()
             try {
@@ -264,11 +262,11 @@ class Live2DWallpaperService : WallpaperService() {
                             WallpaperComm.ACTION_SEND_MESSAGE -> {
                                 val msg = intent.getStringExtra(WallpaperComm.EXTRA_MESSAGE_TEXT)
                                 if (!msg.isNullOrBlank()) {
-                    logger.debug(
-                        "Received widget message: $msg",
-                        throttleMs = 1_000L,
-                        throttleKey = "widget_receive"
-                    )
+                                    logger.debug(
+                                            "Received widget message: $msg",
+                                            throttleMs = 1_000L,
+                                            throttleKey = "widget_receive"
+                                    )
                                     scope.launch {
                                         val appCtx = this@Live2DWallpaperService.applicationContext
                                         val success =
@@ -415,11 +413,11 @@ class Live2DWallpaperService : WallpaperService() {
         }
 
         override fun onTouchEvent(event: MotionEvent) {
-        logger.debug(
-            "touch action=${MotionEvent.actionToString(event.actionMasked)} pointers=${event.pointerCount}",
-            throttleMs = 200L,
-            throttleKey = "touch_${event.actionMasked}"
-        )
+            logger.debug(
+                    "touch action=${MotionEvent.actionToString(event.actionMasked)} pointers=${event.pointerCount}",
+                    throttleMs = 200L,
+                    throttleKey = "touch_${event.actionMasked}"
+            )
             gestureDispatcher.onTouchEvent(event)
         }
 
@@ -443,9 +441,7 @@ class Live2DWallpaperService : WallpaperService() {
             scope.launch {
                 val bitmap = decodeSampledBitmap(path)
                 if (bitmap != null) {
-                    logger.info(
-                            "Background decoded (${bitmap.width}x${bitmap.height}), applying"
-                    )
+                    logger.info("Background decoded (${bitmap.width}x${bitmap.height}), applying")
                     renderer.setBackgroundBitmap(bitmap)
                     lastAppliedBackgroundPath = path
                 } else {
@@ -533,12 +529,12 @@ private class WallpaperGLThread(
             var shouldExit = false
             var shouldSkipFrame = false
             synchronized(lock) {
-        while (running && !surfaceReady) {
-            logger.debug(
-                "Waiting (running=$running, surfaceReady=$surfaceReady, paused=$paused)",
-                throttleMs = 2_000L,
-                throttleKey = "gl_wait_state"
-            )
+                while (running && !surfaceReady) {
+                    logger.debug(
+                            "Waiting (running=$running, surfaceReady=$surfaceReady, paused=$paused)",
+                            throttleMs = 2_000L,
+                            throttleKey = "gl_wait_state"
+                    )
                     lock.wait()
                 }
                 if (!running) {
@@ -580,9 +576,7 @@ private class WallpaperGLThread(
             }
             if (sizeDirty) {
                 try {
-                    logger.info(
-                            "Dispatching renderer.onSurfaceChanged -> ${width}x${height}"
-                    )
+                    logger.info("Dispatching renderer.onSurfaceChanged -> ${width}x${height}")
                     renderer.onSurfaceChanged(null, width, height)
                 } catch (t: Throwable) {
                     logger.error("renderer.onSurfaceChanged crashed", t)
@@ -619,7 +613,7 @@ private class WallpaperGLThread(
     }
 
     fun onSurfaceCreated(holder: SurfaceHolder) {
-    logger.info("onSurfaceCreated holder=$holder")
+        logger.info("onSurfaceCreated holder=$holder")
         synchronized(lock) {
             this.holder = holder
             surfaceReady = true
@@ -628,7 +622,7 @@ private class WallpaperGLThread(
     }
 
     fun onSurfaceChanged(width: Int, height: Int) {
-    logger.info("onSurfaceChanged width=$width height=$height")
+        logger.info("onSurfaceChanged width=$width height=$height")
         synchronized(lock) {
             this.width = width
             this.height = height
@@ -680,7 +674,7 @@ private class WallpaperGLThread(
             signalError(RenderStage.EGL_INIT, RuntimeException("eglInitialize failed"))
             return
         }
-    logger.info("EGL initialized version=${version[0]}.${version[1]}")
+        logger.info("EGL initialized version=${version[0]}.${version[1]}")
         val attribs =
                 intArrayOf(
                         EGL14.EGL_RED_SIZE,

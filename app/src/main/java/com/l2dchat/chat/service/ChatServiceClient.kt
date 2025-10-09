@@ -347,11 +347,11 @@ class ChatServiceClient(context: Context) : ServiceConnection {
     private fun flushPendingCommands() {
         if (pendingCommands.isEmpty()) return
         val target = serviceMessenger ?: return
-    logger.debug(
-        "Flushing ${pendingCommands.size} pending commands",
-        throttleMs = 1_000L,
-        throttleKey = "flush_pending"
-    )
+        logger.debug(
+                "Flushing ${pendingCommands.size} pending commands",
+                throttleMs = 1_000L,
+                throttleKey = "flush_pending"
+        )
         val snapshot = ArrayList(pendingCommands)
         pendingCommands.clear()
         snapshot.forEach { (pendingWhat, pendingData) ->
@@ -362,25 +362,25 @@ class ChatServiceClient(context: Context) : ServiceConnection {
     private fun queueCommand(what: Int, data: Bundle?) {
         val copy = data?.let { Bundle(it) }
         pendingCommands.add(what to copy)
-    logger.debug(
-        "queueCommand ${commandName(what)} pending=${pendingCommands.size} bound=$isBound messengerReady=${serviceMessenger != null}",
-        throttleMs = 500L,
-        throttleKey = "queue_${commandName(what)}"
-    )
+        logger.debug(
+                "queueCommand ${commandName(what)} pending=${pendingCommands.size} bound=$isBound messengerReady=${serviceMessenger != null}",
+                throttleMs = 500L,
+                throttleKey = "queue_${commandName(what)}"
+        )
     }
 
     private fun dispatchCommand(target: Messenger, what: Int, data: Bundle?) {
-    try {
-        val msg =
-            Message.obtain(null, what).apply {
-            replyTo = messenger
-            data?.let { this.data = it }
-            }
-        logger.debug(
-            "dispatchCommand ${commandName(what)} -> binder=$target",
-            throttleMs = 500L,
-            throttleKey = "dispatch_${commandName(what)}"
-        )
+        try {
+            val msg =
+                    Message.obtain(null, what).apply {
+                        replyTo = messenger
+                        data?.let { this.data = it }
+                    }
+            logger.debug(
+                    "dispatchCommand ${commandName(what)} -> binder=$target",
+                    throttleMs = 500L,
+                    throttleKey = "dispatch_${commandName(what)}"
+            )
             target.send(msg)
         } catch (e: RemoteException) {
             logger.error("sendMessage failed", e)

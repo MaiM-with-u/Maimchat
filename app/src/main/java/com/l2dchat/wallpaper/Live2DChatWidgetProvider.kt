@@ -15,11 +15,11 @@ class Live2DChatWidgetProvider : AppWidgetProvider() {
     private val logger = L2DLogger.module(LogModule.WIDGET)
 
     override fun onReceive(context: Context, intent: Intent) {
-    logger.debug(
-        "onReceive action=${intent.action}",
-        throttleMs = 1_000L,
-        throttleKey = "widget_receive"
-    )
+        logger.debug(
+                "onReceive action=${intent.action}",
+                throttleMs = 1_000L,
+                throttleKey = "widget_receive"
+        )
         super.onReceive(context, intent)
     }
 
@@ -29,27 +29,27 @@ class Live2DChatWidgetProvider : AppWidgetProvider() {
             appWidgetIds: IntArray
     ) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
-    logger.debug("onUpdate ids=${appWidgetIds.joinToString()}")
+        logger.debug("onUpdate ids=${appWidgetIds.joinToString()}")
         updateAllWidgets(context)
     }
 
     companion object {
         private val logger = L2DLogger.module(LogModule.WIDGET)
         fun updateAllWidgets(context: Context) {
-        logger.debug(
-            "updateAllWidgets invoked",
-            throttleMs = 1_000L,
-            throttleKey = "widget_update_all"
-        )
+            logger.debug(
+                    "updateAllWidgets invoked",
+                    throttleMs = 1_000L,
+                    throttleKey = "widget_update_all"
+            )
             val manager = AppWidgetManager.getInstance(context)
             val component = ComponentName(context, Live2DChatWidgetProvider::class.java)
             val ids = manager.getAppWidgetIds(component)
             if (ids.isEmpty()) {
-        logger.debug(
-            "No widget ids registered",
-            throttleMs = 2_000L,
-            throttleKey = "widget_no_ids"
-        )
+                logger.debug(
+                        "No widget ids registered",
+                        throttleMs = 2_000L,
+                        throttleKey = "widget_no_ids"
+                )
                 return
             }
             val sp =
@@ -72,11 +72,11 @@ class Live2DChatWidgetProvider : AppWidgetProvider() {
                             addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
                             addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
                         }
-        logger.debug(
-            "Preparing PendingIntent for widgetId=$id",
-            throttleMs = 1_000L,
-            throttleKey = "widget_pending_intent"
-        )
+                logger.debug(
+                        "Preparing PendingIntent for widgetId=$id",
+                        throttleMs = 1_000L,
+                        throttleKey = "widget_pending_intent"
+                )
                 val pi =
                         PendingIntent.getActivity(
                                 context,

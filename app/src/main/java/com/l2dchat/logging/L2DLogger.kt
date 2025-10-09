@@ -40,9 +40,10 @@ object L2DLogger {
     private val buffer = ArrayDeque<LogEntry>(MAX_BUFFER_SIZE)
     private val entriesState = MutableStateFlow<List<LogEntry>>(emptyList())
 
-    private val dateFormat = ThreadLocal.withInitial {
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
-    }
+    private val dateFormat =
+            ThreadLocal.withInitial {
+                SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
+            }
 
     /** Initialise the logger with an application context. Safe to call multiple times. */
     fun init(context: Context) {
@@ -99,13 +100,14 @@ object L2DLogger {
             return
         }
         forwardToLogcat(module, level, message, throwable)
-        val entry = LogEntry(
-                timestamp = System.currentTimeMillis(),
-                module = module,
-                level = level,
-                message = message,
-                throwable = throwable?.stackTraceToString()
-        )
+        val entry =
+                LogEntry(
+                        timestamp = System.currentTimeMillis(),
+                        module = module,
+                        level = level,
+                        message = message,
+                        throwable = throwable?.stackTraceToString()
+                )
         pushToBuffer(entry)
         scope.launch { persist(entry) }
     }
@@ -159,11 +161,12 @@ object L2DLogger {
 
     private fun rotateLogs(dir: File) {
         for (i in LOG_FILE_ROTATION_COUNT downTo 1) {
-            val src = if (i == 1) {
-                File(dir, LOG_FILE_PREFIX + LOG_FILE_EXTENSION)
-            } else {
-                File(dir, LOG_FILE_PREFIX + "_" + (i - 1) + LOG_FILE_EXTENSION)
-            }
+            val src =
+                    if (i == 1) {
+                        File(dir, LOG_FILE_PREFIX + LOG_FILE_EXTENSION)
+                    } else {
+                        File(dir, LOG_FILE_PREFIX + "_" + (i - 1) + LOG_FILE_EXTENSION)
+                    }
             val dst = File(dir, LOG_FILE_PREFIX + "_" + i + LOG_FILE_EXTENSION)
             if (src.exists()) {
                 if (dst.exists()) dst.delete()
@@ -174,9 +177,9 @@ object L2DLogger {
 
     private fun formatLine(entry: LogEntry): String {
         val time = dateFormat.get().format(Date(entry.timestamp))
-    val sanitizedMessage = entry.message.replace("\n", "\\n")
-    val throwable = entry.throwable?.replace("\n", "\\n") ?: ""
-    return listOf(time, entry.level.name, entry.module.storageKey, sanitizedMessage, throwable)
+        val sanitizedMessage = entry.message.replace("\n", "\\n")
+        val throwable = entry.throwable?.replace("\n", "\\n") ?: ""
+        return listOf(time, entry.level.name, entry.module.storageKey, sanitizedMessage, throwable)
                 .joinToString("|")
     }
 }
@@ -213,12 +216,7 @@ data class LogEntry(
 private class LogRateLimiter {
     private val lastLogAt = ConcurrentHashMap<String, Long>()
 
-    fun shouldLog(
-            module: LogModule,
-            level: LogLevel,
-            rawKey: String?,
-            throttleMs: Long
-    ): Boolean {
+    fun shouldLog(module: LogModule, level: LogLevel, rawKey: String?, throttleMs: Long): Boolean {
         if (throttleMs <= 0) return true
         val key = buildString {
             append(module.storageKey)
@@ -257,7 +255,7 @@ class ModuleLogger internal constructor(private val module: LogModule) {
     ) = log(LogLevel.VERBOSE, message, throwable, throttleMs, throttleKey)
 
     fun verbose(
-        message: () -> String,
+            message: () -> String,
             throwable: Throwable? = null,
             throttleMs: Long? = null,
             throttleKey: String? = null
@@ -271,7 +269,7 @@ class ModuleLogger internal constructor(private val module: LogModule) {
     ) = log(LogLevel.DEBUG, message, throwable, throttleMs, throttleKey)
 
     fun debug(
-        message: () -> String,
+            message: () -> String,
             throwable: Throwable? = null,
             throttleMs: Long? = null,
             throttleKey: String? = null
@@ -285,7 +283,7 @@ class ModuleLogger internal constructor(private val module: LogModule) {
     ) = log(LogLevel.INFO, message, throwable, throttleMs, throttleKey)
 
     fun info(
-        message: () -> String,
+            message: () -> String,
             throwable: Throwable? = null,
             throttleMs: Long? = null,
             throttleKey: String? = null
@@ -299,7 +297,7 @@ class ModuleLogger internal constructor(private val module: LogModule) {
     ) = log(LogLevel.WARN, message, throwable, throttleMs, throttleKey)
 
     fun warn(
-        message: () -> String,
+            message: () -> String,
             throwable: Throwable? = null,
             throttleMs: Long? = null,
             throttleKey: String? = null
@@ -313,7 +311,7 @@ class ModuleLogger internal constructor(private val module: LogModule) {
     ) = log(LogLevel.ERROR, message, throwable, throttleMs, throttleKey)
 
     fun error(
-        message: () -> String,
+            message: () -> String,
             throwable: Throwable? = null,
             throttleMs: Long? = null,
             throttleKey: String? = null

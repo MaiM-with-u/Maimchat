@@ -8,10 +8,10 @@ import android.os.SystemClock
 import com.l2dchat.live2d.ImprovedLive2DRenderer
 import com.l2dchat.live2d.Live2DBackgroundTextureHelper
 import com.l2dchat.live2d.Live2DViewTransformStore
-import com.live2d.demo.full.LAppDelegate
-import com.live2d.demo.full.LAppLive2DManager
 import com.l2dchat.logging.L2DLogger
 import com.l2dchat.logging.LogModule
+import com.live2d.demo.full.LAppDelegate
+import com.live2d.demo.full.LAppLive2DManager
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
@@ -70,7 +70,7 @@ class WallpaperLive2DRenderer(private val context: Context) : GLSurfaceView.Rend
             pendingBackgroundBitmap = bitmap
             backgroundNeedsUpload.set(true)
         }
-    logger.info("Background bitmap queued -> ${bitmap?.width}x${bitmap?.height}")
+        logger.info("Background bitmap queued -> ${bitmap?.width}x${bitmap?.height}")
     }
 
     private fun applyDelegateDefaults() {
@@ -144,17 +144,13 @@ class WallpaperLive2DRenderer(private val context: Context) : GLSurfaceView.Rend
         surfaceHeight = height
         delegate?.onSurfaceChanged(width, height)
         live2DManager?.setActiveTransformKey(TRANSFORM_CONTEXT_KEY)
-    logger.info("Surface changed -> ${width}x${height}")
+        logger.info("Surface changed -> ${width}x${height}")
         requestModelReload()
         chatBubbleRenderer.onSurfaceChanged(width, height)
     }
 
     override fun onDrawFrame(gl: GL10?) {
-    logger.verbose(
-        "onDrawFrame start",
-        throttleMs = 2_000L,
-        throttleKey = "frame-start"
-    )
+        logger.verbose("onDrawFrame start", throttleMs = 2_000L, throttleKey = "frame-start")
         live2DManager?.setActiveTransformKey(TRANSFORM_CONTEXT_KEY)
         uploadBackgroundIfNeeded()
         ensureModelLoaded()
@@ -205,7 +201,7 @@ class WallpaperLive2DRenderer(private val context: Context) : GLSurfaceView.Rend
         delegate = null
         live2DManager = null
         ImprovedLive2DRenderer.safeShutdownFramework()
-    logger.info("Renderer release complete")
+        logger.info("Renderer release complete")
         chatBubbleRenderer.release()
     }
 
@@ -222,7 +218,7 @@ class WallpaperLive2DRenderer(private val context: Context) : GLSurfaceView.Rend
         val desired = targetModelFolder.get()
         if (desired == appliedModelFolder && desired != null) return
         if (desired == null && appliedModelFolder != null) return
-    logModelLoadAttempt("ensure-pre", desired, manager)
+        logModelLoadAttempt("ensure-pre", desired, manager)
         try {
             val folderToLoad =
                     when {
@@ -353,9 +349,9 @@ class WallpaperLive2DRenderer(private val context: Context) : GLSurfaceView.Rend
         modelReadyLogged = false
         retryCount += 1
         val desired = targetModelFolder.get()
-    logger.warn(
-        "Live2D model not ready (attempt=$retryCount, desired=$desired, applied=$appliedModelFolder), scheduling reload"
-    )
+        logger.warn(
+                "Live2D model not ready (attempt=$retryCount, desired=$desired, applied=$appliedModelFolder), scheduling reload"
+        )
         if (model != null) {
             triggerIdleOrFallback(model)
         }
@@ -469,7 +465,7 @@ class WallpaperLive2DRenderer(private val context: Context) : GLSurfaceView.Rend
         }
         if (live2DManager == null && !ensureDelegateReady(true)) {
             logger.warn(
-                "Cannot reload model $desired immediately: manager unavailable after ensure"
+                    "Cannot reload model $desired immediately: manager unavailable after ensure"
             )
             return false
         }
@@ -596,9 +592,7 @@ class WallpaperLive2DRenderer(private val context: Context) : GLSurfaceView.Rend
             consecutiveModelLoadFailures = 0
             forcePipelineReset("model load failure ($folder)")
         } else {
-            logger.warn(
-                    "Model load failure count=$consecutiveModelLoadFailures for folder=$folder"
-            )
+            logger.warn("Model load failure count=$consecutiveModelLoadFailures for folder=$folder")
         }
     }
 
@@ -630,9 +624,9 @@ class WallpaperLive2DRenderer(private val context: Context) : GLSurfaceView.Rend
         val failureCount = consecutiveModelLoadFailures
         val assetsExist = target?.let { doesModelAssetExist(it) } ?: false
         val noteSuffix = note?.takeIf { it.isNotBlank() }?.let { " note=$it" } ?: ""
-    logger.debug(
-        "ModelLoad[$stage] target=$desired applied=$applied managerModels=$modelCount dirs=$dirs delegateReady=$ready resetInFlight=$resetInFlight blockMs=$blockLeft failureCount=$failureCount assetsExist=$assetsExist$noteSuffix"
-    )
+        logger.debug(
+                "ModelLoad[$stage] target=$desired applied=$applied managerModels=$modelCount dirs=$dirs delegateReady=$ready resetInFlight=$resetInFlight blockMs=$blockLeft failureCount=$failureCount assetsExist=$assetsExist$noteSuffix"
+        )
     }
 
     private fun forcePipelineReset(reason: String) {
@@ -789,7 +783,7 @@ class WallpaperLive2DRenderer(private val context: Context) : GLSurfaceView.Rend
     }
 
     private fun requestModelReload() {
-    logger.debug("requestModelReload invoked")
+        logger.debug("requestModelReload invoked")
         appliedModelFolder = null
         modelReadyLogged = false
         retryCount = 0

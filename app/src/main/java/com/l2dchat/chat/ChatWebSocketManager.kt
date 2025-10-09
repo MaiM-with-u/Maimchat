@@ -277,9 +277,17 @@ class ChatWebSocketManager {
     }
 
     fun setUserProfile(nickname: String, cardName: String? = null, userId: String? = null) {
-        userNickname = nickname.ifBlank { null }
+        val sanitizedNickname = nickname.trim()
+        userNickname = sanitizedNickname.ifBlank { null }
         userCardName = cardName?.ifBlank { null }
-        userId?.let { if (it.isNotBlank()) this.userId = it }
+
+        val resolvedId =
+                when {
+                    sanitizedNickname.isNotEmpty() -> sanitizedNickname
+                    !userId.isNullOrBlank() -> userId.trim()
+                    else -> null
+                }
+        resolvedId?.let { this.userId = it }
     }
     fun setActiveModel(context: Context, modelName: String?) {
         receiverModelName = modelName?.ifBlank { null }

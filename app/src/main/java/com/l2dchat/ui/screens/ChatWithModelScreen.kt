@@ -128,6 +128,7 @@ fun ChatWithModelScreen(
     var showConnectConfirm by remember { mutableStateOf(false) }
     var chatInputHeightPx by remember { mutableStateOf(0) }
     val connectionErrorBanners = remember { mutableStateListOf<ConnectionErrorBanner>() }
+    var suppressMissingUrlWarning by rememberSaveable { mutableStateOf(true) }
 
     var isLoadingDefaultModel by remember { mutableStateOf(selectedModel == null) }
     var currentModel by remember(modelKey) { mutableStateOf(selectedModel) }
@@ -197,8 +198,14 @@ fun ChatWithModelScreen(
             }
 
     LaunchedEffect(chatManager) {
+        val missingUrlKeywords = listOf("未设置服务器地址", "未提供有效的服务器地址", "未配置连接地址", "尚未配置 WebSocket URL")
         chatManager.errors.collect { raw ->
             val message = raw.trim().ifEmpty { "连接出现未知错误" }
+            val suppressThis =
+                    suppressMissingUrlWarning &&
+                            missingUrlKeywords.any { keyword -> keyword in message }
+            if (suppressThis) return@collect
+
             val entry = ConnectionErrorBanner(System.nanoTime(), message)
             connectionErrorBanners.add(entry)
             if (connectionErrorBanners.size > 5) {
@@ -643,6 +650,7 @@ fun ChatWithModelScreen(
                                             receiverUserNickname.ifBlank { null }
                                     )
                                     chatManager.updatePlatformPreference(sanitizedPlatform)
+                                    suppressMissingUrlWarning = false
                                     uiLogger.info(
                                             "Confirm connect triggered url=$serverUrl platform=$sanitizedPlatform nickname=$nickname receiverId=${receiverUserId.ifBlank { "(null)" }}"
                                     )

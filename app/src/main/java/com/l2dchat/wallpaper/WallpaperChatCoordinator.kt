@@ -42,12 +42,8 @@ object WallpaperChatCoordinator {
 
     suspend fun sendMessage(context: Context, message: String): Boolean {
         val trimmed = message.trim()
-    if (trimmed.isEmpty()) {
-        logger.warn(
-            "忽略空白消息",
-            throttleMs = 1_000L,
-            throttleKey = "empty_message"
-        )
+        if (trimmed.isEmpty()) {
+            logger.warn("忽略空白消息", throttleMs = 1_000L, throttleKey = "empty_message")
             return false
         }
         val appContext = context.applicationContext
@@ -55,12 +51,8 @@ object WallpaperChatCoordinator {
         client.ensureBound()
         updateWidgetPreview(appContext, trimmed, fromUser = true)
         val connected = ensureConnection(appContext, client)
-    if (!connected) {
-        logger.warn(
-            "无法在超时时间内连接到服务器，发送失败",
-            throttleMs = 2_000L,
-            throttleKey = "send_timeout"
-        )
+        if (!connected) {
+            logger.warn("无法在超时时间内连接到服务器，发送失败", throttleMs = 2_000L, throttleKey = "send_timeout")
             return false
         }
         client.sendUserMessage(trimmed)
@@ -186,11 +178,11 @@ object WallpaperChatCoordinator {
         val url = prefs.getString(KEY_LAST_URL, null)?.takeUnless { it.isBlank() }
         val platform = prefs.getString(KEY_PLATFORM, null)?.takeUnless { it.isBlank() }
         if (url.isNullOrEmpty()) {
-        logger.warn(
-            "尚未配置 WebSocket URL，无法建立连接",
-            throttleMs = 3_000L,
-            throttleKey = "missing_url"
-        )
+            logger.warn(
+                    "尚未配置 WebSocket URL，无法建立连接",
+                    throttleMs = 3_000L,
+                    throttleKey = "missing_url"
+            )
             return false
         }
         client.connect(url, platform)

@@ -39,8 +39,7 @@ class Live2DChatMessageHandler {
             "emoji" -> content.addEmoji(segment.data.toString())
             "voice" -> content.addVoice(segment.data.toString())
             "seglist" -> {
-                @Suppress("UNCHECKED_CAST")
-                val segList = segment.data as List<Seg>
+                @Suppress("UNCHECKED_CAST") val segList = segment.data as List<Seg>
                 for (child in segList) {
                     parseSegmentRecursive(child, content)
                 }
@@ -138,9 +137,15 @@ class ParsedMessageContent {
     val textData: MutableList<String> = mutableListOf()
     val emojiData: MutableList<String> = mutableListOf()
     val voiceData: MutableList<String> = mutableListOf()
-    fun addText(t: String): Unit { textData.add(t) }
-    fun addEmoji(e: String): Unit { emojiData.add(e) }
-    fun addVoice(v: String): Unit { voiceData.add(v) }
+    fun addText(t: String): Unit {
+        textData.add(t)
+    }
+    fun addEmoji(e: String): Unit {
+        emojiData.add(e)
+    }
+    fun addVoice(v: String): Unit {
+        voiceData.add(v)
+    }
     fun addUnknown(type: String, data: String): Unit {
         chatLogger.warn(
                 message = "未知类型当作文本: $type $data",
